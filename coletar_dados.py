@@ -2,7 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 import os
 
-URL = "https://www.transfermarkt.com.br/rafael/leistungsdaten/spieler/68097/saison/2024/plus/1"
+URL = "https://www.transfermarkt.com.br/rafael/leistungsdaten/spieler/68097/saison/2024/plus/1#gesamt"
 HEADERS = {"User-Agent": "Mozilla/5.0"}
 
 response = requests.get(URL, headers=HEADERS)
