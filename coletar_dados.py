@@ -8,46 +8,30 @@ HEADERS = {"User-Agent": "Mozilla/5.0"}
 response = requests.get(URL, headers=HEADERS)
 soup = BeautifulSoup(response.text, "html.parser")
 
-# Captura a seção da tabela completa (Gesamt)
+# Acessa a seção "Gesamt" (tabela completa)
 div = soup.find("div", id="tab-leistungsdaten-gesamt")
 table = div.find("table", class_="items") if div else soup.find("table", class_="items")
 
 if not table:
     raise Exception("Tabela não encontrada na página")
 
-# Detecta a linha com mais colunas no <thead> como cabeçalho real
-header_rows = table.find("thead").find_all("tr")
-header_cells = max(header_rows, key=lambda tr: len(tr.find_all(["th", "td"]))).find_all(["th", "td"])
-headers = [cell.get_text(strip=True) for cell in header_cells]
+# 🧠 Encontra a linha de cabeçalho com mais colunas (ignora linhas de agrupamento)
+thead_rows = table.find("thead").find_all("tr")
+header_row = max(thead_rows, key=lambda tr: len(tr.find_all(["th", "td"])))
+headers = [cell.get_text(strip=True) for cell in header_row.find_all(["th", "td"])]
 
-# Captura todas as linhas do corpo
-rows = table.find("tbody").find_all("tr")
-
+# 🔄 Monta linhas do corpo da tabela
+tbody_rows = table.find("tbody").find_all("tr")
 html_rows = ""
-for row in rows:
-    # Pega a célula da primeira coluna (competição), que é <th>
-    th = row.find("th")
+for row in tbody_rows:
+    th = row.find("th")  # normalmente a competição
     competencia = th.get_text(strip=True) if th else ""
-
-    # Pega os <td> com os dados restantes
-    cols = row.find_all("td")
-    values = [col.get_text(strip=True) for col in cols]
-
-    all_cells = [competencia] + values if competencia else values
-    html_cells = "".join(f"<td>{cell}</td>" for cell in all_cells)
+    
+    td_values = [td.get_text(strip=True) for td in row.find_all("td")]
+    full_row = [competencia] + td_values if competencia else td_values
+    html_cells = "".join(f"<td>{cell}</td>" for cell in full_row)
     html_rows += f"<tr>{html_cells}</tr>\n"
 
-# Constrói a tabela HTML
+# 🧱 Gera a tabela HTML final
 html_table = "<table border='1' style='width:100%;border-collapse:collapse;text-align:center;'>\n<thead>\n<tr>"
 for h in headers:
-    html_table += f"<th>{h}</th>"
-html_table += "</tr>\n</thead>\n<tbody>\n"
-html_table += html_rows
-html_table += "</tbody>\n</table>"
-
-# Salva o HTML no diretório public
-os.makedirs("public", exist_ok=True)
-with open("public/tabela_desempenho_completo.html", "w", encoding="utf-8") as f:
-    f.write(html_table)
-
-print("✅ Tabela completa corrigida e salva com sucesso.")
