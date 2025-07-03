@@ -34,6 +34,8 @@ html_tabela = f"""<table border="1" style="width: 100%; border-collapse: collaps
 </table>
 """
 
+import os
+os.makedirs("public", exist_ok=True)
 with open("public/tabela_desempenho.html", "w", encoding="utf-8") as f:
     f.write(html_tabela)
 
