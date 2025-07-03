@@ -17,6 +17,15 @@ else:
 
 rows = table.find("tbody").find_all("tr")
 
+# 🔍 Inspecionar colunas de cada linha
+print("🧪 Colunas detectadas por linha:\n")
+for row in rows:
+    cols = row.find_all("td")
+    if not cols:
+        continue
+    print([c.get_text(strip=True) for c in cols])  # Aqui você enxerga a ordem real das colunas
+
+# 🧱 Construir a tabela HTML (por enquanto mantemos os índices atuais)
 html_linhas = ""
 for row in rows:
     cols = row.find_all("td")
@@ -45,4 +54,4 @@ os.makedirs("public", exist_ok=True)
 with open("public/tabela_desempenho.html", "w", encoding="utf-8") as f:
     f.write(html_tabela)
 
-print("✅ Tabela atualizada com sucesso.")
+print("\n✅ Tabela atualizada com sucesso.")
