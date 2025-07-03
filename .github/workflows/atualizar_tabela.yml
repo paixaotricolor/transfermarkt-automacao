@@ -24,7 +24,7 @@ jobs:
     - name: Rodar o script Python
       run: python coletar_dados.py
 
-        - name: Fazer commit do HTML gerado
+    - name: Fazer commit do HTML gerado
       run: |
         git config user.name "github-actions"
         git config user.email "actions@github.com"
