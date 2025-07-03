@@ -30,6 +30,6 @@ jobs:
       run: |
         git config user.name "github-actions"
         git config user.email "actions@github.com"
-        git add public/tabela_desempenho.html
+        git add public/tabela_desempenho_completo.html
         git commit -m "🔁 Atualização automática da tabela" || echo "Nada para comitar"
         git push https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git HEAD:main
