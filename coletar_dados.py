@@ -12,29 +12,32 @@ soup = BeautifulSoup(response.text, "html.parser")
 div = soup.find("div", id="tab-leistungsdaten-gesamt")
 table = div.find("table", class_="items") if div else soup.find("table", class_="items")
 
-# Captura a linha de títulos (segunda linha do thead)
+if not table:
+    raise Exception("Tabela não encontrada na página")
+
+# Detecta a linha com mais colunas no <thead> como cabeçalho real
 header_rows = table.find("thead").find_all("tr")
-header_cells = header_rows[1].find_all(["th", "td"])  # a linha real dos títulos é a 2ª
+header_cells = max(header_rows, key=lambda tr: len(tr.find_all(["th", "td"]))).find_all(["th", "td"])
 headers = [cell.get_text(strip=True) for cell in header_cells]
 
-# Captura todas as linhas de dados (tbody)
+# Captura todas as linhas do corpo
 rows = table.find("tbody").find_all("tr")
 
 html_rows = ""
 for row in rows:
-    # Pega a célula com o nome da competição (primeira coluna é th)
-    competencia = row.find("th").get_text(strip=True)
+    # Pega a célula da primeira coluna (competição), que é <th>
+    th = row.find("th")
+    competencia = th.get_text(strip=True) if th else ""
 
-    # Depois pega o resto das colunas
+    # Pega os <td> com os dados restantes
     cols = row.find_all("td")
     values = [col.get_text(strip=True) for col in cols]
 
-    # Junta a primeira coluna (competição) com as demais
-    all_cells = [competencia] + values
+    all_cells = [competencia] + values if competencia else values
     html_cells = "".join(f"<td>{cell}</td>" for cell in all_cells)
     html_rows += f"<tr>{html_cells}</tr>\n"
 
-# Constrói a tabela HTML final
+# Constrói a tabela HTML
 html_table = "<table border='1' style='width:100%;border-collapse:collapse;text-align:center;'>\n<thead>\n<tr>"
 for h in headers:
     html_table += f"<th>{h}</th>"
@@ -47,4 +50,4 @@ os.makedirs("public", exist_ok=True)
 with open("public/tabela_desempenho_completo.html", "w", encoding="utf-8") as f:
     f.write(html_table)
 
-print("✅ Tabela completa corrigida e salva
+print("✅ Tabela completa corrigida e salva com sucesso.")
