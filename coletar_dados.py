@@ -8,46 +8,38 @@ HEADERS = {"User-Agent": "Mozilla/5.0"}
 response = requests.get(URL, headers=HEADERS)
 soup = BeautifulSoup(response.text, "html.parser")
 
-# Acessa a aba 'gesamt' (desempenho completo)
-tabela_div = soup.find("div", id="tab-leistungsdaten-gesamt")
-if not tabela_div:
-    raise Exception("Tabela de desempenho não encontrada")
+# Captura a seção completa de desempenho (Gesamt)
+div = soup.find("div", id="tab-leistungsdaten-gesamt")
+table = div.find("table", class_="items") if div else soup.find("table", class_="items")
 
-table = tabela_div.find("table", class_="items")
-thead = table.find("thead")
-tbody = table.find("tbody")
-rows = tbody.find_all("tr")
+# Captura todos os cabeçalhos da tabela
+header_cells = table.find("thead").find_all("th")
+headers = [th.get_text(strip=True) for th in header_cells]
 
-# Extrair cabeçalhos
-headers = [th.get_text(strip=True) for th in thead.find_all("th")]
+# Captura todas as linhas do corpo
+rows = table.find("tbody").find_all("tr")
 
-# Construir linhas da tabela
-html_linhas = ""
+# Monta linhas HTML
+html_rows = ""
 for row in rows:
-    if "class" in row.attrs and "bg_blau_20" in row["class"]:
-        continue  # Ignora subheaders dentro do corpo da tabela
     cols = row.find_all("td")
     if not cols:
         continue
-    dados = [td.get_text(strip=True).replace("'", "") for td in cols]
-    html_linhas += "<tr>" + "".join(f"<td>{d}</td>" for d in dados) + "</tr>\n"
+    # extrai todo texto, col por col
+    values = [c.get_text(strip=True) for c in cols]
+    cells = "".join(f"<td>{v}</td>" for v in values)
+    html_rows += f"<tr>{cells}</tr>\n"
 
-# Gerar cabeçalho HTML
-html_header = "".join(f"<th>{h}</th>" for h in headers)
-
-# HTML final
-html_tabela = f"""<table border="1" style="width: 100%; border-collapse: collapse; text-align: center;">
-  <thead style="background-color: #f2f2f2;">
-    <tr>{html_header}</tr>
-  </thead>
-  <tbody>
-    {html_linhas}
-  </tbody>
-</table>
-"""
+# Constrói a tabela HTML completa
+html_table = "<table border='1' style='width:100%;border-collapse:collapse;text-align:center;'>\n<thead>\n<tr>"
+for h in headers:
+    html_table += f"<th>{h}</th>"
+html_table += "</tr>\n</thead>\n<tbody>\n"
+html_table += html_rows
+html_table += "</tbody>\n</table>"
 
 os.makedirs("public", exist_ok=True)
-with open("public/tabela_desempenho.html", "w", encoding="utf-8") as f:
-    f.write(html_tabela)
+with open("public/tabela_desempenho_completo.html", "w", encoding="utf-8") as f:
+    f.write(html_table)
 
-print("✅ Tabela COMPLETA de desempenho atualizada com sucesso.")
+print("✅ Tabela completa salva em public/tabela_desempenho_completo.html")
