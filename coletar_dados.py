@@ -1,5 +1,6 @@
 import requests
 from bs4 import BeautifulSoup
+import os
 
 URL = "https://www.transfermarkt.com.br/rafael/leistungsdaten/spieler/68097/saison/2024/plus/1"
 HEADERS = {"User-Agent": "Mozilla/5.0"}
@@ -7,7 +8,13 @@ HEADERS = {"User-Agent": "Mozilla/5.0"}
 response = requests.get(URL, headers=HEADERS)
 soup = BeautifulSoup(response.text, "html.parser")
 
-table = soup.find("table", class_="items")
+# Pega a div da aba 'gesamt' (tabela completa)
+tabela_div = soup.find("div", id="tab-leistungsdaten-gesamt")
+if tabela_div:
+    table = tabela_div.find("table", class_="items")
+else:
+    table = soup.find("table", class_="items")
+
 rows = table.find("tbody").find_all("tr")
 
 html_linhas = ""
@@ -15,9 +22,9 @@ for row in rows:
     cols = row.find_all("td")
     if not cols:
         continue
-    competencia = cols[0].get_text(strip=True)
-    jogos = cols[1].get_text(strip=True)
-    minutos = cols[-1].get_text(strip=True)
+    competencia = cols[1].get_text(strip=True)  # Ajustado para segunda coluna
+    jogos = cols[2].get_text(strip=True)       # Ajustado para terceira coluna
+    minutos = cols[-1].get_text(strip=True)    # Última coluna
     html_linhas += f"<tr><td>{competencia}</td><td>{jogos}</td><td>{minutos}</td></tr>\n"
 
 html_tabela = f"""<table border="1" style="width: 100%; border-collapse: collapse; text-align: center;">
@@ -34,7 +41,6 @@ html_tabela = f"""<table border="1" style="width: 100%; border-collapse: collaps
 </table>
 """
 
-import os
 os.makedirs("public", exist_ok=True)
 with open("public/tabela_desempenho.html", "w", encoding="utf-8") as f:
     f.write(html_tabela)
