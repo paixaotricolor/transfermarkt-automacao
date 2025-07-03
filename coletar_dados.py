@@ -8,41 +8,37 @@ HEADERS = {"User-Agent": "Mozilla/5.0"}
 response = requests.get(URL, headers=HEADERS)
 soup = BeautifulSoup(response.text, "html.parser")
 
-# Pega a div da aba 'gesamt' (tabela completa)
+# Acessa a aba 'gesamt' (desempenho completo)
 tabela_div = soup.find("div", id="tab-leistungsdaten-gesamt")
-if tabela_div:
-    table = tabela_div.find("table", class_="items")
-else:
-    table = soup.find("table", class_="items")
+if not tabela_div:
+    raise Exception("Tabela de desempenho não encontrada")
 
-rows = table.find("tbody").find_all("tr")
+table = tabela_div.find("table", class_="items")
+thead = table.find("thead")
+tbody = table.find("tbody")
+rows = tbody.find_all("tr")
 
-# 🔍 Inspecionar colunas de cada linha
-print("🧪 Colunas detectadas por linha:\n")
-for row in rows:
-    cols = row.find_all("td")
-    if not cols:
-        continue
-    print([c.get_text(strip=True) for c in cols])  # Aqui você enxerga a ordem real das colunas
+# Extrair cabeçalhos
+headers = [th.get_text(strip=True) for th in thead.find_all("th")]
 
-# 🧱 Construir a tabela HTML (por enquanto mantemos os índices atuais)
+# Construir linhas da tabela
 html_linhas = ""
 for row in rows:
+    if "class" in row.attrs and "bg_blau_20" in row["class"]:
+        continue  # Ignora subheaders dentro do corpo da tabela
     cols = row.find_all("td")
     if not cols:
         continue
-    competencia = cols[1].get_text(strip=True)  # Ajustado para segunda coluna
-    jogos = cols[2].get_text(strip=True)       # Ajustado para terceira coluna
-    minutos = cols[-1].get_text(strip=True)    # Última coluna
-    html_linhas += f"<tr><td>{competencia}</td><td>{jogos}</td><td>{minutos}</td></tr>\n"
+    dados = [td.get_text(strip=True).replace("'", "") for td in cols]
+    html_linhas += "<tr>" + "".join(f"<td>{d}</td>" for d in dados) + "</tr>\n"
 
+# Gerar cabeçalho HTML
+html_header = "".join(f"<th>{h}</th>" for h in headers)
+
+# HTML final
 html_tabela = f"""<table border="1" style="width: 100%; border-collapse: collapse; text-align: center;">
   <thead style="background-color: #f2f2f2;">
-    <tr>
-      <th>Competição</th>
-      <th>Jogos</th>
-      <th>Minutos</th>
-    </tr>
+    <tr>{html_header}</tr>
   </thead>
   <tbody>
     {html_linhas}
@@ -54,4 +50,4 @@ os.makedirs("public", exist_ok=True)
 with open("public/tabela_desempenho.html", "w", encoding="utf-8") as f:
     f.write(html_tabela)
 
-print("\n✅ Tabela atualizada com sucesso.")
+print("✅ Tabela COMPLETA de desempenho atualizada com sucesso.")
