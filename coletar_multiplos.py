@@ -3,7 +3,6 @@ from bs4 import BeautifulSoup
 import os
 import re
 
-# Lista de jogadores e seus links
 jogadores = [
     ("Rafael", "https://www.transfermarkt.com.br/rafael/leistungsdaten/spieler/68097/saison/2024/plus/1"),
     ("Jandrei", "https://www.transfermarkt.com.br/jandrei/leistungsdaten/spieler/512344/saison/2024/plus/1"),
@@ -43,7 +42,6 @@ jogadores = [
     ("Juan Dinenno", "https://www.transfermarkt.com.br/juan-dinenno/leistungsdaten/spieler/288786/saison/2024/plus/1")
 ]
 
-# Cria pasta onde os HTMLs serão salvos
 os.makedirs("public", exist_ok=True)
 
 for nome, url in jogadores:
@@ -53,35 +51,38 @@ for nome, url in jogadores:
         response = requests.get(url, headers={"User-Agent": "Mozilla/5.0"})
         soup = BeautifulSoup(response.text, "html.parser")
 
-        # Tenta localizar a seção da aba "Desempenho 2025"
-        div = soup.find("div", id="tab-leistungsdaten-gesamt")
-        table = div.find("table", class_="items") if div else None
+        # Pega diretamente a primeira tabela com class="items" (que já é a tabela de desempenho)
+        table = soup.find("table", class_="items")
         if not table:
             print(f"⚠️ Tabela não encontrada para {nome}")
             continue
 
-        # Extrai os cabeçalhos
+        # Cabeçalhos
         header_cells = table.find("thead").find_all("th")
-        headers = [th.get_text(strip=True) for th in header_cells[1:]]  # Pula a 1ª coluna (imagem)
+        headers = [th.get_text(strip=True) for th in header_cells[1:]]  # Ignora a coluna de ícone/imagem
 
-        # Extrai as linhas
+        # Linhas de dados
         html_rows = ""
         for row in table.find("tbody").find_all("tr"):
             cols = row.find_all("td")
             if not cols:
                 continue
-            competencia = cols[0].get_text(strip=True)  # Nome da competição
-            values = [col.get_text(strip=True) for col in cols[1:]]  # Ignora imagem
+
+            # Primeira célula pode conter imagem + texto. Vamos pegar apenas o texto.
+            competencia_td = cols[0]
+            competencia = competencia_td.get_text(strip=True)
+
+            values = [col.get_text(strip=True) for col in cols[1:]]  # Restante das colunas
             cells = f"<td>{competencia}</td>" + "".join(f"<td>{v}</td>" for v in values)
             html_rows += f"<tr>{cells}</tr>\n"
 
-        # Constrói o HTML completo da tabela
+        # Montar tabela HTML
         html_table = "<table border='1' style='width:100%;border-collapse:collapse;text-align:center;'>\n"
         html_table += "<thead style='background-color:#f2f2f2;'><tr><th>Competição</th>"
         html_table += "".join(f"<th>{h}</th>" for h in headers)
         html_table += "</tr></thead>\n<tbody>\n" + html_rows + "</tbody>\n</table>"
 
-        # Salva o HTML
+        # Salvar HTML
         nome_arquivo = re.sub(r"[^a-zA-Z0-9]", "_", nome.strip().lower()) + ".html"
         with open(f"public/{nome_arquivo}", "w", encoding="utf-8") as f:
             f.write(html_table)
@@ -90,4 +91,5 @@ for nome, url in jogadores:
 
     except Exception as e:
         print(f"❌ Erro ao processar {nome}: {e}\n")
+
 
