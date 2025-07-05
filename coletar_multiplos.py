@@ -46,57 +46,47 @@ HEADERS = {"User-Agent": "Mozilla/5.0"}
 
 os.makedirs("public", exist_ok=True)
 
-def extrair_tabela(url):
-    resp = requests.get(url, headers=HEADERS)
-    soup = BeautifulSoup(resp.text, "html.parser")
-
-    div_tabela = soup.find("div", id="tab-leistungsdaten-gesamt")
-    if not div_tabela:
-        return None, None
-
-    tabela = div_tabela.find("table", class_="items")
-    if not tabela:
-        return None, None
-
-    # Cabeçalhos
-    header_cells = tabela.find("thead").find_all("th")
-    headers = [th.get_text(strip=True) for th in header_cells if th.get_text(strip=True)]
-
-    # Linhas
-    linhas_html = ""
-    for row in tabela.find("tbody").find_all("tr"):
-        cols = row.find_all("td")
-        if not cols:
-            continue
-
-        # Primeira coluna (competição) pode ter imagem + texto → pegamos só o texto
-        primeira_coluna = cols[0].get_text(strip=True)
-
-        outras_colunas = [td.get_text(strip=True) for td in cols[1:]]
-        valores = [primeira_coluna] + outras_colunas
-
-        linha = "".join(f"<td>{v}</td>" for v in valores)
-        linhas_html += f"<tr>{linha}</tr>\n"
-
-    return headers, linhas_html
-
 for nome, url in jogadores:
     print(f"🔄 Coletando dados de {nome}...")
-    headers, linhas_html = extrair_tabela(url)
 
-    if not headers or not linhas_html:
-        print(f"⚠️ Tabela não encontrada para {nome}")
-        continue
+    try:
+        response = requests.get(url, headers=HEADERS)
+        soup = BeautifulSoup(response.text, "html.parser")
 
-    html = "<table border='1' style='width:100%;border-collapse:collapse;text-align:center;'>\n<thead>\n<tr>"
-    for h in headers:
-        html += f"<th>{h}</th>"
-    html += "</tr>\n</thead>\n<tbody>\n"
-    html += linhas_html
-    html += "</tbody>\n</table>"
+        titulo = soup.find("h2", string=re.compile(r"Desempenho 2025", re.I))
+        if not titulo:
+            print(f"⚠️ Título 'Desempenho 2025' não encontrado para {nome}")
+            continue
 
-    nome_arquivo = nome.lower().replace(" ", "_") + ".html"
-    caminho = os.path.join("public", nome_arquivo)
-    with open(caminho, "w", encoding="utf-8") as f:
-        f.write(html)
-    print(f"✅ Tabela de {nome} salva em {caminho}")
+        tabela = titulo.find_next("table", class_="items")
+        if not tabela:
+            print(f"⚠️ Tabela não encontrada para {nome}")
+            continue
+
+        # Cabeçalhos
+        headers = [th.get_text(strip=True) for th in tabela.find("thead").find_all("th")]
+
+        # Linhas
+        linhas = []
+        for tr in tabela.find("tbody").find_all("tr"):
+            if not tr.find_all("td"):
+                continue
+            linha = [td.get_text(strip=True) for td in tr.find_all("td")]
+            linhas.append(linha)
+
+        # Montar HTML
+        html = "<table style='width:100%;border-collapse:collapse;text-align:center;' border='1'>\n<thead><tr>"
+        html += "".join(f"<th>{h}</th>" for h in headers)
+        html += "</tr></thead>\n<tbody>\n"
+        for linha in linhas:
+            html += "<tr>" + "".join(f"<td>{dado}</td>" for dado in linha) + "</tr>\n"
+        html += "</tbody></table>"
+
+        filename = f"public/{nome.lower().replace(' ', '_')}.html"
+        with open(filename, "w", encoding="utf-8") as f:
+            f.write(html)
+
+        print(f"✅ Tabela salva em {filename}")
+
+    except Exception as e:
+        print(f"❌ Erro ao processar {nome}: {e}")
