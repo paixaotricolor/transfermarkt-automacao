@@ -1,4 +1,4 @@
-name: Atualizar tabela do Rafael
+name: Atualizar tabelas de jogadores
 
 on:
   workflow_dispatch:
@@ -21,15 +21,15 @@ jobs:
     - name: Instalar bibliotecas
       run: pip install requests beautifulsoup4
 
-    - name: Rodar o script Python
-      run: python coletar_dados.py
+    - name: Rodar o script Python para múltiplos jogadores
+      run: python coletar_multiplos.py
 
-    - name: Fazer commit do HTML gerado
+    - name: Fazer commit dos HTMLs gerados
       env:
         GH_TOKEN: ${{ secrets.GH_PAT }}
       run: |
         git config user.name "github-actions"
         git config user.email "actions@github.com"
-        git add public/tabela_desempenho_completo.html
-        git commit -m "🔁 Atualização automática da tabela" || echo "Nada para comitar"
+        git add public/*.html
+        git commit -m "🔁 Atualização automática das tabelas de jogadores" || echo "Nada para comitar"
         git push https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git HEAD:main
