@@ -44,47 +44,46 @@ jogadores = [
 
 HEADERS = {"User-Agent": "Mozilla/5.0"}
 
-os.makedirs("public", exist_ok=True)
+response = requests.get(URL, headers=HEADERS)
+soup = BeautifulSoup(response.text, "html.parser")
 
-for nome, url in jogadores:
-    print(f"🔄 Coletando dados de {nome}...")
+# Encontra a tabela dentro da div específica
+div = soup.find("div", id="tab-leistungsdaten-gesamt")
+table = div.find("table", class_="items") if div else None
 
-    try:
-        response = requests.get(url, headers=HEADERS)
-        soup = BeautifulSoup(response.text, "html.parser")
+if not table:
+    raise Exception("Tabela não encontrada")
 
-        titulo = soup.find("h2", string=re.compile(r"Desempenho 2025", re.I))
-        if not titulo:
-            print(f"⚠️ Título 'Desempenho 2025' não encontrado para {nome}")
-            continue
+# Extrai os cabeçalhos
+header_cells = table.find("thead").find_all("th")
+headers = [th.get_text(strip=True) for th in header_cells]
 
-        tabela = titulo.find_next("table", class_="items")
-        if not tabela:
-            print(f"⚠️ Tabela não encontrada para {nome}")
-            continue
+# Extrai os dados do corpo da tabela
+rows = table.find("tbody").find_all("tr")
+html_rows = ""
 
-        # Cabeçalhos
-        headers = [th.get_text(strip=True) for th in tabela.find("thead").find_all("th")]
+for row in rows:
+    cols = row.find_all("td")
+    if not cols:
+        continue
 
-        # Linhas
-        linhas = []
-        for tr in tabela.find("tbody").find_all("tr"):
-            if not tr.find_all("td"):
-                continue
-            linha = [td.get_text(strip=True) for td in tr.find_all("td")]
-            linhas.append(linha)
+    row_data = []
+    for i, col in enumerate(cols):
+        if i == 0:
+            # Remove qualquer conteúdo de <a>, mantendo apenas o texto
+            for a in col.find_all("a"):
+                a.decompose()
+        row_data.append(col.get_text(strip=True))
+    
+    html_row = "".join(f"<td>{v}</td>" for v in row_data)
+    html_rows += f"<tr>{html_row}</tr>\n"
 
-        # Montar HTML
-        html = "<table style='width:100%;border-collapse:collapse;text-align:center;' border='1'>\n<thead><tr>"
-        html += "".join(f"<th>{h}</th>" for h in headers)
-        html += "</tr></thead>\n<tbody>\n"
-        for linha in linhas:
-            html += "<tr>" + "".join(f"<td>{dado}</td>" for dado in linha) + "</tr>\n"
-        html += "</tbody></table>"
-
-        filename = f"public/{nome.lower().replace(' ', '_')}.html"
-        with open(filename, "w", encoding="utf-8") as f:
-            f.write(html)
+# Monta HTML final
+html_table = "<table border='1' style='width:100%;border-collapse:collapse;text-align:center;'>\n<thead><tr>"
+html_table += "".join(f"<th>{h}</th>" for h in headers)
+html_table += "</tr></thead>\n<tbody>\n"
+html_table += html_rows
+html_table += "</tbody>\n</table>"
 
         print(f"✅ Tabela salva em {filename}")
 
