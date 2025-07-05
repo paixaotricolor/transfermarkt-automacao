@@ -21,10 +21,10 @@ jobs:
     - name: Instalar bibliotecas
       run: pip install requests beautifulsoup4
 
-    - name: Rodar o script Python para múltiplos jogadores
+    - name: Rodar o script Python
       run: python coletar_multiplos.py
 
-    - name: Fazer commit dos HTMLs gerados
+    - name: Fazer commit dos arquivos HTML
       env:
         GH_TOKEN: ${{ secrets.GH_PAT }}
       run: |
