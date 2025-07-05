@@ -15,7 +15,7 @@ table = div.find("table", class_="items") if div else soup.find("table", class_=
 if not table:
     raise Exception("Tabela não encontrada na página")
 
-# Cabeçalhos desejados
+# Cabeçalhos desejados (fixos e traduzidos)
 headers = [
     "Competição", "Jogos", "Gols", "Assistências", "Suplente utilizado",
     "Substituições", "Cartões amarelos", "Expulsões (2A)", "Expulsões (R)",
@@ -28,27 +28,34 @@ html_rows = ""
 for row in rows:
     tds = row.find_all("td")
     if len(tds) < 3:
-        continue  # ignora linhas vazias ou de separação
+        continue  # ignora linhas sem conteúdo útil
 
-    # Nome da competição está no segundo <td>
+    # Extrai o nome da competição da segunda célula
     competencia = tds[1].get_text(strip=True)
 
-    # Dados restantes começam no terceiro <td>
+    # Extrai os dados restantes a partir da terceira célula
     dados = [td.get_text(strip=True) for td in tds[2:]]
 
-    # Linha final com nome da competição + dados
+    # Junta o nome da competição com os dados
     linha_completa = [competencia] + dados
 
-    # Limita à quantidade de colunas dos cabeçalhos
+    # Garante que só sejam usadas as colunas correspondentes aos cabeçalhos
     linha_completa = linha_completa[:len(headers)]
 
-    # Gera a linha HTML
+    # Monta a linha HTML
     html_cells = "".join(f"<td>{dado}</td>" for dado in linha_completa)
     html_rows += f"<tr>{html_cells}</tr>\n"
 
-# Monta tabela HTML final
+# Monta a tabela HTML
 html_table = "<table border='1' style='width:100%;border-collapse:collapse;text-align:center;'>\n<thead><tr>"
 html_table += "".join(f"<th>{h}</th>" for h in headers)
 html_table += "</tr></thead>\n<tbody>\n"
 html_table += html_rows
 html_table += "</tbody>\n</table>"
+
+# Cria a pasta e salva o HTML
+os.makedirs("public", exist_ok=True)
+with open("public/tabela_desempenho_completo.html", "w", encoding="utf-8") as f:
+    f.write(html_table)
+
+print("✅ Tabela salva com colunas e dados perfeitamente alinhados.")
