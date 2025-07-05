@@ -1,39 +1,35 @@
-name: Atualizar tabelas Transfermarkt
+name: Atualizar tabelas de desempenho
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 3 * * *'  # roda todo dia às 3h da manhã UTC (00h no Brasil no horário de inverno)
+    - cron: '0 3 * * *'  # Executa todos os dias às 3h da manhã (horário UTC)
 
 jobs:
-  atualizar-htmls:
+  atualizar-html:
     runs-on: ubuntu-latest
 
     steps:
     - name: Clonar repositório
       uses: actions/checkout@v3
 
-    - name: Configurar Python 3.11
+    - name: Instalar Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.11'
 
     - name: Instalar dependências
-      run: |
-        python -m pip install --upgrade pip
-        pip install requests beautifulsoup4
+      run: pip install requests beautifulsoup4
 
-    - name: Rodar script coletar_multiplos.py
+    - name: Rodar o script de coleta
       run: python coletar_multiplos.py
 
-    - name: Commit e push dos arquivos gerados
+    - name: Fazer commit dos HTMLs gerados
       env:
         GH_TOKEN: ${{ secrets.GH_PAT }}
       run: |
         git config user.name "github-actions"
         git config user.email "actions@github.com"
         git add public/*.html
-        git diff --cached --quiet || (
-          git commit -m "🔁 Atualização automática das tabelas Transfermarkt"
-          git push https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git HEAD:main
-        )
+        git commit -m "🔁 Atualização automática das tabelas de desempenho" || echo "Nada para comitar"
+        git push https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git HEAD:main
