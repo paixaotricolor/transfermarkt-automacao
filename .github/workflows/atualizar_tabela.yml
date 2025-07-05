@@ -1,9 +1,9 @@
-name: Atualizar tabelas dos jogadores
+name: Atualizar tabelas de desempenho
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 3 * * *'  # Executa diariamente às 3h UTC
+    - cron: '0 3 * * *'
 
 jobs:
   atualizar-html:
@@ -13,23 +13,23 @@ jobs:
       - name: Clonar repositório
         uses: actions/checkout@v3
 
-      - name: Instalar Python e dependências
+      - name: Instalar Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
 
-      - name: Instalar bibliotecas
+      - name: Instalar dependências
         run: pip install requests beautifulsoup4
 
       - name: Rodar o script Python
         run: python coletar_multiplos.py
 
-      - name: Fazer commit dos HTMLs gerados
+      - name: Comitar HTMLs gerados
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
           git add public/*.html
-          git commit -m "🔁 Atualização automática das tabelas de jogadores" || echo "Nada para comitar"
+          git commit -m "🔁 Atualização automática das tabelas" || echo "Nada para comitar"
           git push https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git HEAD:main
