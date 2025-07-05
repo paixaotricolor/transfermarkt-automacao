@@ -3,7 +3,7 @@ from bs4 import BeautifulSoup
 import os
 
 # Lista de jogadores (nome, url)
-jogadores = [
+JOGADORES = [
     ("Rafael", "https://www.transfermarkt.com.br/rafael/leistungsdaten/spieler/68097/saison/2024/plus/1"),
     ("Jandrei", "https://www.transfermarkt.com.br/jandrei/leistungsdaten/spieler/512344/saison/2024/plus/1"),
     ("Young", "https://www.transfermarkt.com.br/young/leistungsdaten/spieler/894532/saison/2024/plus/1"),
