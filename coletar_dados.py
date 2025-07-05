@@ -51,4 +51,4 @@ html_table = "<table border='1' style='width:100%;border-collapse:collapse;text-
 html_table += "".join(f"<th>{h}</th>" for h in headers)
 html_table += "</tr></thead>\n<tbody>\n"
 html_table += html_rows
-html_table += "</tbody>\n</table>_
+html_table += "</tbody>\n</table>
