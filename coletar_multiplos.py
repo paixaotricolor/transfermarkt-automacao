@@ -1,9 +1,10 @@
 import requests
 from bs4 import BeautifulSoup
 import os
+import re
 
-# Lista de jogadores (nome, url)
-jogadores  = [
+# Lista de jogadores e seus links
+jogadores = [
     ("Rafael", "https://www.transfermarkt.com.br/rafael/leistungsdaten/spieler/68097/saison/2024/plus/1"),
     ("Jandrei", "https://www.transfermarkt.com.br/jandrei/leistungsdaten/spieler/512344/saison/2024/plus/1"),
     ("Young", "https://www.transfermarkt.com.br/young/leistungsdaten/spieler/894532/saison/2024/plus/1"),
@@ -42,53 +43,51 @@ jogadores  = [
     ("Juan Dinenno", "https://www.transfermarkt.com.br/juan-dinenno/leistungsdaten/spieler/288786/saison/2024/plus/1")
 ]
 
-HEADERS = {"User-Agent": "Mozilla/5.0"}
-
+# Cria pasta onde os HTMLs serão salvos
 os.makedirs("public", exist_ok=True)
 
-def coletar_tabela(nome, url):
+for nome, url in jogadores:
     print(f"🔄 Coletando dados de {nome}...")
+
     try:
-        response = requests.get(url, headers=HEADERS)
+        response = requests.get(url, headers={"User-Agent": "Mozilla/5.0"})
         soup = BeautifulSoup(response.text, "html.parser")
 
+        # Tenta localizar a seção da aba "Desempenho 2025"
         div = soup.find("div", id="tab-leistungsdaten-gesamt")
         table = div.find("table", class_="items") if div else None
         if not table:
             print(f"⚠️ Tabela não encontrada para {nome}")
-            return
+            continue
 
-        # Extrair cabeçalhos
-        headers = [th.get_text(strip=True) for th in table.find("thead").find_all("th") if th.get_text(strip=True)]
+        # Extrai os cabeçalhos
+        header_cells = table.find("thead").find_all("th")
+        headers = [th.get_text(strip=True) for th in header_cells[1:]]  # Pula a 1ª coluna (imagem)
 
-        # Extrair linhas
+        # Extrai as linhas
         html_rows = ""
         for row in table.find("tbody").find_all("tr"):
             cols = row.find_all("td")
             if not cols:
                 continue
-            # Ignora a primeira coluna (ícone)
-            values = [td.get_text(strip=True) for td in cols[1:]]
-            html_cells = "".join(f"<td>{v}</td>" for v in values)
-            html_rows += f"<tr>{html_cells}</tr>\n"
+            competencia = cols[0].get_text(strip=True)  # Nome da competição
+            values = [col.get_text(strip=True) for col in cols[1:]]  # Ignora imagem
+            cells = f"<td>{competencia}</td>" + "".join(f"<td>{v}</td>" for v in values)
+            html_rows += f"<tr>{cells}</tr>\n"
 
-        # Monta a tabela HTML
-        html_table = "<table border='1' style='width:100%;border-collapse:collapse;text-align:center;'>\n<thead>\n<tr>"
-        for h in headers[1:]:  # também ignora o cabeçalho da 1ª coluna
-            html_table += f"<th>{h}</th>"
-        html_table += "</tr>\n</thead>\n<tbody>\n"
-        html_table += html_rows
-        html_table += "</tbody>\n</table>"
+        # Constrói o HTML completo da tabela
+        html_table = "<table border='1' style='width:100%;border-collapse:collapse;text-align:center;'>\n"
+        html_table += "<thead style='background-color:#f2f2f2;'><tr><th>Competição</th>"
+        html_table += "".join(f"<th>{h}</th>" for h in headers)
+        html_table += "</tr></thead>\n<tbody>\n" + html_rows + "</tbody>\n</table>"
 
         # Salva o HTML
-        filename = f"public/{nome.lower().replace(' ', '_')}.html"
-        with open(filename, "w", encoding="utf-8") as f:
+        nome_arquivo = re.sub(r"[^a-zA-Z0-9]", "_", nome.strip().lower()) + ".html"
+        with open(f"public/{nome_arquivo}", "w", encoding="utf-8") as f:
             f.write(html_table)
 
-        print(f"✅ Tabela salva: {filename}")
-    except Exception as e:
-        print(f"❌ Erro ao processar {nome}: {e}")
+        print(f"✅ Tabela de {nome} salva com sucesso.\n")
 
-# Roda para todos os jogadores
-for nome, url in JOGADORES:
-    coletar_tabela(nome, url)
+    except Exception as e:
+        print(f"❌ Erro ao processar {nome}: {e}\n")
+
