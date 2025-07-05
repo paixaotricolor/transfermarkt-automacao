@@ -85,12 +85,9 @@ html_table += "</tr></thead>\n<tbody>\n"
 html_table += html_rows
 html_table += "</tbody>\n</table>"
 
+        # Salva a tabela
+        os.makedirs("public", exist_ok=True)
         filename = f"public/{nome.lower().replace(' ', '_')}.html"
         with open(filename, "w", encoding="utf-8") as f:
-            f.write(html)
-
-        print(f"✅ {nome} salvo com sucesso em {filename}")
-        time.sleep(1)  # pausa para evitar bloqueio
-
-    except Exception as e:
-        print(f"❌ Erro com {nome}: {e}")
+            f.write(html_table)
+        print(f"✅ Tabela salva em {filename}")
