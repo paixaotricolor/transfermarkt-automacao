@@ -43,92 +43,52 @@ jogadores = [
 ]
 
 HEADERS = {"User-Agent": "Mozilla/5.0"}
-TEMPORADA_ATUAL = "2025"  # Ajuste conforme a temporada desejada
 
-def pegar_tabela_completa(url, temporada=2025):
-    try:
-        res = requests.get(url, headers=HEADERS, timeout=10)
-        res.raise_for_status()
-    except Exception as e:
-        print(f"❌ Erro ao acessar {url}: {e}")
-        return None
+os.makedirs("public", exist_ok=True)
 
-    soup = BeautifulSoup(res.text, "html.parser")
-
-    # Tentar pegar a aba geral ("Gesamt")
-    div_gesamt = soup.find("div", id="tab-leistungsdaten-gesamt")
-    if div_gesamt:
-        table = div_gesamt.find("table", class_="items")
-        if table:
-            return table
-
-    # Tentar pegar aba da temporada exata (exemplo id: tab-leistungsdaten-saison-2025)
-    tab_id = f"tab-leistungsdaten-saison-{temporada}"
-    div_saison = soup.find("div", id=tab_id)
-    if div_saison:
-        table = div_saison.find("table", class_="items")
-        if table:
-            return table
-
-    # Fallback: primeira tabela com class items na página
-    table = soup.find("table", class_="items")
-    if table:
-        return table
-
-    return None
-
-def extrair_e_salvar_tabela(nome, url):
+def coletar_tabela(nome, url):
     print(f"🔄 Coletando dados de {nome}...")
+    try:
+        response = requests.get(url, headers=HEADERS)
+        soup = BeautifulSoup(response.text, "html.parser")
 
-    table = pegar_tabela_completa(url)
-    if not table:
-        print(f"⚠️ Tabela não encontrada para {nome}")
-        return
+        div = soup.find("div", id="tab-leistungsdaten-gesamt")
+        table = div.find("table", class_="items") if div else None
+        if not table:
+            print(f"⚠️ Tabela não encontrada para {nome}")
+            return
 
-    # Cabeçalhos
-    header_cells = table.find("thead").find_all("th")
-    headers = [th.get_text(strip=True) for th in header_cells]
+        # Extrair cabeçalhos
+        headers = [th.get_text(strip=True) for th in table.find("thead").find_all("th") if th.get_text(strip=True)]
 
-    # Linhas
-    rows = table.find("tbody").find_all("tr")
-    html_rows = ""
+        # Extrair linhas
+        html_rows = ""
+        for row in table.find("tbody").find_all("tr"):
+            cols = row.find_all("td")
+            if not cols:
+                continue
+            # Ignora a primeira coluna (ícone)
+            values = [td.get_text(strip=True) for td in cols[1:]]
+            html_cells = "".join(f"<td>{v}</td>" for v in values)
+            html_rows += f"<tr>{html_cells}</tr>\n"
 
-    for row in rows:
-        cols = row.find_all("td")
-        if not cols:
-            continue
+        # Monta a tabela HTML
+        html_table = "<table border='1' style='width:100%;border-collapse:collapse;text-align:center;'>\n<thead>\n<tr>"
+        for h in headers[1:]:  # também ignora o cabeçalho da 1ª coluna
+            html_table += f"<th>{h}</th>"
+        html_table += "</tr>\n</thead>\n<tbody>\n"
+        html_table += html_rows
+        html_table += "</tbody>\n</table>"
 
-        # Tratamento especial na 1ª coluna (competição): ignorar imagem e pegar só o texto limpo
-        competencia_td = cols[0]
-        competencia_text = competencia_td.find_all(text=True, recursive=False)
-        competencia = competencia_text[0].strip() if competencia_text else ""
+        # Salva o HTML
+        filename = f"public/{nome.lower().replace(' ', '_')}.html"
+        with open(filename, "w", encoding="utf-8") as f:
+            f.write(html_table)
 
-        # Pega os textos das outras colunas
-        valores = [competencia] + [c.get_text(strip=True) for c in cols[1:]]
+        print(f"✅ Tabela salva: {filename}")
+    except Exception as e:
+        print(f"❌ Erro ao processar {nome}: {e}")
 
-        # Monta a linha HTML
-        cells_html = "".join(f"<td>{v}</td>" for v in valores)
-        html_rows += f"<tr>{cells_html}</tr>\n"
-
-    # Montar tabela HTML completa
-    html_table = (
-        "<table border='1' style='width:100%;border-collapse:collapse;text-align:center;'>\n<thead>\n<tr>"
-    )
-    for h in headers:
-        html_table += f"<th>{h}</th>"
-    html_table += "</tr>\n</thead>\n<tbody>\n"
-    html_table += html_rows
-    html_table += "</tbody>\n</table>"
-
-    # Salvar arquivo
-    os.makedirs("public", exist_ok=True)
-    filename = f"public/tabela_{nome.lower().replace(' ', '_')}.html"
-    with open(filename, "w", encoding="utf-8") as f:
-        f.write(html_table)
-
-    print(f"✅ Tabela salva em {filename}")
-
-if __name__ == "__main__":
-    for nome, url in jogadores:
-        extrair_e_salvar_tabela(nome, url)
-
+# Roda para todos os jogadores
+for nome, url in JOGADORES:
+    coletar_tabela(nome, url)
