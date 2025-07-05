@@ -1,35 +1,35 @@
-name: Atualizar tabelas de desempenho
+name: Atualizar tabelas dos jogadores
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 3 * * *'  # Executa todos os dias às 3h da manhã (horário UTC)
+    - cron: '0 3 * * *'  # Executa diariamente às 3h UTC
 
 jobs:
   atualizar-html:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Clonar repositório
-      uses: actions/checkout@v3
+      - name: Clonar repositório
+        uses: actions/checkout@v3
 
-    - name: Instalar Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
+      - name: Instalar Python e dependências
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
 
-    - name: Instalar dependências
-      run: pip install requests beautifulsoup4
+      - name: Instalar bibliotecas
+        run: pip install requests beautifulsoup4
 
-    - name: Rodar o script de coleta
-      run: python coletar_multiplos.py
+      - name: Rodar o script Python
+        run: python coletar_multiplos.py
 
-    - name: Fazer commit dos HTMLs gerados
-      env:
-        GH_TOKEN: ${{ secrets.GH_PAT }}
-      run: |
-        git config user.name "github-actions"
-        git config user.email "actions@github.com"
-        git add public/*.html
-        git commit -m "🔁 Atualização automática das tabelas de desempenho" || echo "Nada para comitar"
-        git push https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git HEAD:main
+      - name: Fazer commit dos HTMLs gerados
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add public/*.html
+          git commit -m "🔁 Atualização automática das tabelas de jogadores" || echo "Nada para comitar"
+          git push https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git HEAD:main
