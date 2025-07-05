@@ -2,7 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 import os
 
-# Lista fixa com jogadores e URLs
+# Lista de jogadores (nome, url)
 jogadores = [
     ("Rafael", "https://www.transfermarkt.com.br/rafael/leistungsdaten/spieler/68097/saison/2024/plus/1"),
     ("Jandrei", "https://www.transfermarkt.com.br/jandrei/leistungsdaten/spieler/512344/saison/2024/plus/1"),
@@ -43,60 +43,92 @@ jogadores = [
 ]
 
 HEADERS = {"User-Agent": "Mozilla/5.0"}
+TEMPORADA_ATUAL = "2025"  # Ajuste conforme a temporada desejada
 
-def coletar_tabela(nome, url):
+def pegar_tabela_completa(url, temporada=2025):
+    try:
+        res = requests.get(url, headers=HEADERS, timeout=10)
+        res.raise_for_status()
+    except Exception as e:
+        print(f"❌ Erro ao acessar {url}: {e}")
+        return None
+
+    soup = BeautifulSoup(res.text, "html.parser")
+
+    # Tentar pegar a aba geral ("Gesamt")
+    div_gesamt = soup.find("div", id="tab-leistungsdaten-gesamt")
+    if div_gesamt:
+        table = div_gesamt.find("table", class_="items")
+        if table:
+            return table
+
+    # Tentar pegar aba da temporada exata (exemplo id: tab-leistungsdaten-saison-2025)
+    tab_id = f"tab-leistungsdaten-saison-{temporada}"
+    div_saison = soup.find("div", id=tab_id)
+    if div_saison:
+        table = div_saison.find("table", class_="items")
+        if table:
+            return table
+
+    # Fallback: primeira tabela com class items na página
+    table = soup.find("table", class_="items")
+    if table:
+        return table
+
+    return None
+
+def extrair_e_salvar_tabela(nome, url):
     print(f"🔄 Coletando dados de {nome}...")
-    response = requests.get(url, headers=HEADERS)
-    soup = BeautifulSoup(response.text, "html.parser")
-    
-    div = soup.find("div", id="tab-leistungsdaten-gesamt")
-    if not div:
-        print(f"⚠️ Tabela não encontrada para {nome}")
-        return
-    
-    table = div.find("table", class_="items")
+
+    table = pegar_tabela_completa(url)
     if not table:
         print(f"⚠️ Tabela não encontrada para {nome}")
         return
-    
+
     # Cabeçalhos
     header_cells = table.find("thead").find_all("th")
     headers = [th.get_text(strip=True) for th in header_cells]
-    
+
     # Linhas
     rows = table.find("tbody").find_all("tr")
-    
     html_rows = ""
+
     for row in rows:
         cols = row.find_all("td")
         if not cols:
             continue
-        
-        # Extrair texto da primeira coluna ignorando imagens (pegar só o texto do segundo <td>)
-        competencia = cols[1].get_text(strip=True) if len(cols) > 1 else ""
-        
-        # Extrair os dados restantes, ignorando a primeira coluna que é imagem
-        valores = [competencia] + [c.get_text(strip=True) for c in cols[2:]]
-        
-        cells = "".join(f"<td>{v}</td>" for v in valores)
-        html_rows += f"<tr>{cells}</tr>\n"
-    
-    html_table = "<table border='1' style='width:100%;border-collapse:collapse;text-align:center;'>\n<thead>\n<tr>"
+
+        # Tratamento especial na 1ª coluna (competição): ignorar imagem e pegar só o texto limpo
+        competencia_td = cols[0]
+        competencia_text = competencia_td.find_all(text=True, recursive=False)
+        competencia = competencia_text[0].strip() if competencia_text else ""
+
+        # Pega os textos das outras colunas
+        valores = [competencia] + [c.get_text(strip=True) for c in cols[1:]]
+
+        # Monta a linha HTML
+        cells_html = "".join(f"<td>{v}</td>" for v in valores)
+        html_rows += f"<tr>{cells_html}</tr>\n"
+
+    # Montar tabela HTML completa
+    html_table = (
+        "<table border='1' style='width:100%;border-collapse:collapse;text-align:center;'>\n<thead>\n<tr>"
+    )
     for h in headers:
         html_table += f"<th>{h}</th>"
     html_table += "</tr>\n</thead>\n<tbody>\n"
     html_table += html_rows
     html_table += "</tbody>\n</table>"
-    
+
+    # Salvar arquivo
     os.makedirs("public", exist_ok=True)
     filename = f"public/tabela_{nome.lower().replace(' ', '_')}.html"
     with open(filename, "w", encoding="utf-8") as f:
         f.write(html_table)
-    print(f"✅ Tabela de {nome} salva em {filename}")
 
-def main():
-    for nome, url in jogadores:
-        coletar_tabela(nome, url)
+    print(f"✅ Tabela salva em {filename}")
 
 if __name__ == "__main__":
-    main()
+    for nome, url in jogadores:
+        extrair_e_salvar_tabela(nome, url)
+
