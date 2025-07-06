@@ -4,75 +4,76 @@ import os
 
 jogadores = [
     ("Jandrei", "https://www.transfermarkt.com.br/jandrei/leistungsdaten/spieler/512344/saison/2024/plus/1"),
-    ("Young", "https://www.transfermarkt.com.br/young/leistungsdaten/spieler/894532/saison/2024/plus/1"),
-    ("Leandro Mathias", "https://www.transfermarkt.com.br/leandro-mathias/leistungsdaten/spieler/838386/saison/2024/plus/1"),
-    ("Alan Franco", "https://www.transfermarkt.com.br/alan-franco/leistungsdaten/spieler/503343/saison/2024/plus/1"),
-    # Adicione os demais aqui
+    # adicione o restante dos jogadores aqui...
 ]
 
-headers = {"User-Agent": "Mozilla/5.0"}
+HEADERS = {
+    "User-Agent": "Mozilla/5.0"
+}
 
-def encontrar_tabela_dados(soup):
-    # Busca todas as tabelas com classe 'items'
-    tabelas = soup.find_all("table", class_="items")
-    for tabela in tabelas:
-        h2 = tabela.find_previous("h2")
-        if h2 and "Desempenho" in h2.text:
-            return tabela
+def extrair_tabela_desempenho(html):
+    soup = BeautifulSoup(html, "html.parser")
+    # Encontra a tabela correta com base no título da seção
+    for h2 in soup.find_all("h2"):
+        if "Desempenho" in h2.get_text():
+            table = h2.find_next("table")
+            if table:
+                return table
     return None
+
+def tabela_para_html_formatada(table):
+    thead = table.find("thead")
+    tbody = table.find("tbody")
+
+    # Extrair cabeçalhos com suporte a múltiplas linhas
+    headers = []
+    for row in thead.find_all("tr"):
+        cols = [th.get_text(strip=True) for th in row.find_all(["th", "td"])]
+        headers.append(cols)
+
+    # Padronizar cabeçalhos finais
+    colunas_finais = headers[-1] if headers else []
+
+    # Extrair dados com primeira coluna ignorando ícone (imagem)
+    linhas = []
+    for row in tbody.find_all("tr"):
+        cols = row.find_all("td")
+        if not cols:
+            continue
+        linha = []
+        for i, col in enumerate(cols):
+            if i == 0:
+                # Apenas o texto do nome da competição
+                texto = col.get_text(strip=True)
+                linha.append(texto)
+            else:
+                linha.append(col.get_text(strip=True))
+        linhas.append(linha)
+
+    # Montar HTML final
+    html = "<table>\n<thead><tr>" + "".join(f"<th>{col}</th>" for col in colunas_finais) + "</tr></thead>\n<tbody>\n"
+    for linha in linhas:
+        html += "<tr>" + "".join(f"<td>{dado}</td>" for dado in linha) + "</tr>\n"
+    html += "</tbody>\n</table>"
+
+    return html
+
+def salvar_html(nome, conteudo):
+    os.makedirs("public", exist_ok=True)
+    caminho = f"public/{nome.lower().replace(' ', '_')}.html"
+    with open(caminho, "w", encoding="utf-8") as f:
+        f.write(conteudo)
+    print(f"✅ Tabela salva: {caminho}")
 
 for nome, url in jogadores:
     print(f"🔄 Coletando dados de {nome}...")
     try:
-        response = requests.get(url, headers=headers)
-        soup = BeautifulSoup(response.text, "html.parser")
-
-        tabela = encontrar_tabela_dados(soup)
+        r = requests.get(url, headers=HEADERS)
+        tabela = extrair_tabela_desempenho(r.text)
         if not tabela:
-            print(f"⚠️ Tabela de desempenho não encontrada para {nome}")
+            print(f"⚠️ Tabela não encontrada para {nome}")
             continue
-
-        # Cabeçalhos: pega a última linha de <thead> com <th> visíveis (ignora agrupamentos)
-        thead_rows = tabela.find("thead").find_all("tr")
-        header_cells = thead_rows[-1].find_all("th")
-        headers_text = [th.get_text(strip=True) for th in header_cells]
-
-        # Linhas de dados
-        rows = tabela.find("tbody").find_all("tr", recursive=False)
-        html_rows = ""
-        for row in rows:
-            cols = row.find_all("td", recursive=False)
-            if not cols:
-                continue
-
-            row_data = []
-
-            for idx, col in enumerate(cols):
-                # Primeira coluna (competição): ignora imagem e pega só o texto
-                if idx == 0:
-                    texto = col.get_text(strip=True)
-                    row_data.append(texto)
-                else:
-                    row_data.append(col.get_text(strip=True))
-
-            # Preenche com colunas vazias se estiver faltando
-            while len(row_data) < len(headers_text):
-                row_data.append("")
-
-            html_cells = "".join(f"<td>{d}</td>" for d in row_data)
-            html_rows += f"<tr>{html_cells}</tr>\n"
-
-        # Monta a tabela HTML final
-        html_table = "<table border='1' style='width:100%;border-collapse:collapse;text-align:center;'>\n"
-        html_table += "<thead><tr>" + "".join(f"<th>{h}</th>" for h in headers_text) + "</tr></thead>\n"
-        html_table += "<tbody>\n" + html_rows + "</tbody>\n</table>"
-
-        os.makedirs("public", exist_ok=True)
-        filename = f"public/{nome.lower().replace(' ', '_')}.html"
-        with open(filename, "w", encoding="utf-8") as f:
-            f.write(html_table)
-
-        print(f"✅ Tabela salva em {filename}")
-
+        html_formatado = tabela_para_html_formatada(tabela)
+        salvar_html(nome, html_formatado)
     except Exception as e:
         print(f"❌ Erro ao processar {nome}: {e}")
