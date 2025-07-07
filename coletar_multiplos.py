@@ -80,7 +80,14 @@ def coletar_tabela(jogador, url):
 
     # Extrai o cabeçalho da tabela
     header_row = table.find("thead").find_all("tr")[-1]
-    headers = [th.get_text(strip=True) for th in header_row.find_all("th") if th.get_text(strip=True)]
+    headers = []
+for th in table.find("thead").find_all("th"):
+    text = th.get_text(separator=" ", strip=True)
+    if text:
+        headers.append(text)
+    else:
+        # Se o <th> estiver vazio (ex: ícone), adiciona um nome genérico
+        headers.append("")
 
     # Extrai as linhas de dados
     body_rows = table.find("tbody").find_all("tr", recursive=False)
