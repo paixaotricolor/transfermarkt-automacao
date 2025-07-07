@@ -3,7 +3,6 @@ import requests
 import random
 from bs4 import BeautifulSoup
 
-# Lista de jogadores (nome, link da tabela de desempenho)
 jogadores = [
     ("Rafael", "https://www.transfermarkt.com.br/rafael/leistungsdaten/spieler/68097/saison/2024/plus/1"),
     ("Jandrei", "https://www.transfermarkt.com.br/jandrei/leistungsdaten/spieler/512344/saison/2024/plus/1"),
@@ -43,8 +42,8 @@ jogadores = [
     ("Juan Dinenno", "https://www.transfermarkt.com.br/juan-dinenno/leistungsdaten/spieler/288786/saison/2024/plus/1")
 ]
 
-# Usa proxies se configurado como secret PROXY_LIST
 proxy_list = os.getenv("PROXY_LIST", "").split(",")
+
 def get_random_proxy():
     proxy = random.choice(proxy_list).strip()
     return {"http": proxy, "https": proxy} if proxy else None
@@ -65,45 +64,35 @@ def coletar_tabela(jogador, url):
         return
 
     soup = BeautifulSoup(response.text, "html.parser")
-
-    # Encontra a seção com título "Desempenho 2025"
     section = soup.find("div", {"id": "yw1"})
     if not section:
         print(f"⚠️ Seção de desempenho não encontrada para {jogador}")
         return
 
-    # Localiza a tabela correta
     table = section.find("table", class_="items")
     if not table:
         print(f"⚠️ Tabela não encontrada para {jogador}")
         return
 
-    # Extrai o cabeçalho da tabela
+    # Extrai os cabeçalhos
     header_row = table.find("thead").find_all("tr")[-1]
     headers = []
-for th in table.find("thead").find_all("th"):
-    text = th.get_text(separator=" ", strip=True)
-    if text:
-        headers.append(text)
-    else:
-        # Se o <th> estiver vazio (ex: ícone), adiciona um nome genérico
-        headers.append("")
+    for th in header_row.find_all("th", recursive=False):
+        text = th.get_text(separator=" ", strip=True)
+        headers.append(text if text else "")
 
-    # Extrai as linhas de dados
+    # Extrai os dados
     body_rows = table.find("tbody").find_all("tr", recursive=False)
     dados = []
     for row in body_rows:
         if "class" in row.attrs and "bg_rot_20" in row["class"]:
-            continue  # ignora linhas de separação
-
+            continue
         cells = []
         for td in row.find_all("td", recursive=False):
-            # Remove ícones e imagens
             for tag in td.find_all(["img", "svg", "a"]):
                 tag.unwrap()
             text = td.get_text(strip=True)
-            if text:
-                cells.append(text)
+            cells.append(text)
         if cells:
             dados.append(cells)
 
@@ -111,14 +100,13 @@ for th in table.find("thead").find_all("th"):
         print(f"⚠️ Dados incompletos para {jogador}")
         return
 
-    # Corrige desalinhamento removendo colunas vazias à esquerda
-    while all(row and row[0] == '' for row in dados):
+    # Corrige desalinhamento: remove colunas vazias à esquerda
+    while dados and headers and all(row[0] == '' for row in dados if row):
         for row in dados:
-            del row[0]
-        if headers:
-            del headers[0]
+            if row: del row[0]
+        if headers: del headers[0]
 
-    # Geração do HTML
+    # Gera HTML
     html = "<html><head><meta charset='UTF-8'>"
     html += """
     <style>
@@ -146,6 +134,6 @@ for th in table.find("thead").find_all("th"):
 
     print(f"✅ Tabela salva em {filename}")
 
-# Roda para todos os jogadores
+# Executa para todos os jogadores
 for nome, link in jogadores:
     coletar_tabela(nome, link)
