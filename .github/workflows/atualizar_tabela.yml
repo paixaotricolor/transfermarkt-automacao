@@ -2,8 +2,9 @@ name: Atualizar tabelas múltiplos jogadores
 
 on:
   workflow_dispatch:
+  # Roda todo dia às 3h da manhã
   schedule:
-    - cron: '0 3 * * *'  # Roda todo dia às 3h da manhã
+    - cron: '0 3 * * *'
 
 jobs:
   atualizar-html:
