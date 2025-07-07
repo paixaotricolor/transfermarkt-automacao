@@ -1,38 +1,37 @@
-name: Atualizar tabelas de desempenho
+name: Atualizar tabelas múltiplos jogadores
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 3 * * *'
+    - cron: '0 3 * * *'  # Roda todo dia às 3h da manhã
 
 jobs:
   atualizar-html:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Clonar repositório
-        uses: actions/checkout@v3
+    - name: Clonar repositório
+      uses: actions/checkout@v3
 
-      - name: Instalar Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
+    - name: Configurar Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
 
-      - name: Instalar dependências
-        run: pip install requests beautifulsoup4
+    - name: Instalar dependências
+      run: pip install requests beautifulsoup4
 
-      - name: Instalar bibliotecas
-      run: pip install requests[socks] beautifulsoup4
+    - name: Rodar script Python coletar_multiplos.py
+      env:
+        PROXY_LIST: ${{ secrets.PROXY_LIST }}
+      run: python coletar_multiplos.py
 
-      - name: Rodar o script Python
-        run: python coletar_multiplos.py
-
-      - name: Comitar HTMLs gerados
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
-        run: |
-          git config user.name "github-actions"
-          git config user.email "actions@github.com"
-          git add public/*.html
-          git commit -m "🔁 Atualização automática das tabelas" || echo "Nada para comitar"
-          git push https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git HEAD:main
+    - name: Commit e push dos arquivos atualizados
+      env:
+        GH_TOKEN: ${{ secrets.GH_PAT }}
+      run: |
+        git config user.name "github-actions"
+        git config user.email "actions@github.com"
+        git add public/*.html
+        git commit -m "🔁 Atualização automática das tabelas de desempenho" || echo "Nada para comitar"
+        git push https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git HEAD:main
