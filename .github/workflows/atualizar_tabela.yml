@@ -21,6 +21,9 @@ jobs:
       - name: Instalar dependências
         run: pip install requests beautifulsoup4
 
+      - name: Instalar bibliotecas
+      run: pip install requests[socks] beautifulsoup4
+
       - name: Rodar o script Python
         run: python coletar_multiplos.py
 
