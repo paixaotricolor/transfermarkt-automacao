@@ -2,9 +2,8 @@ name: Atualizar tabelas múltiplos jogadores
 
 on:
   workflow_dispatch:
-  # Roda todo dia às 3h da manhã
   schedule:
-    - cron: '0 3 * * *'
+    - cron: '0 3 * * *'  # Roda todo dia às 3h da manhã
 
 jobs:
   atualizar-html:
@@ -23,8 +22,6 @@ jobs:
       run: pip install requests beautifulsoup4
 
     - name: Rodar script Python coletar_multiplos.py
-      env:
-        PROXY_LIST: ${{ secrets.PROXY_LIST }}
       run: python coletar_multiplos.py
 
     - name: Commit e push dos arquivos atualizados
