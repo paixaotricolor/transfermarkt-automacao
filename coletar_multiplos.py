@@ -98,4 +98,21 @@ for nome, url in jogadores:
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>{nome} - Tabela de Desempenho</title>
         <style>
-            body {{ font-fam
+            body {{ font-family: Arial, sans-serif; padding: 20px; }}
+            table {{ border-collapse: collapse; width: 100%; }}
+            th, td {{ border: 1px solid #ccc; padding: 8px; text-align: center; }}
+            thead th {{ position: sticky; top: 0; background-color: #f9f9f9; z-index: 1; }}
+        </style>
+    </head>
+    <body>
+        <h2>Tabela de desempenho - {nome}</h2>
+        {tabela_html}
+    </body>
+    </html>
+    """
+
+    filename = f"public/{nome.lower().replace(' ', '_')}.html"
+    with open(filename, "w", encoding="utf-8") as f:
+        f.write(output_html)
+
+    print(f"✅ Tabela salva em {filename}")
