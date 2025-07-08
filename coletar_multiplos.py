@@ -1,25 +1,9 @@
 import os
-import random
 import requests
 from bs4 import BeautifulSoup
+import random
+import time
 
-# Lista fixa de cabeçalhos
-HEADERS_FIXOS = [
-    "Campeonato",
-    "Jogos",
-    "Gols",
-    "Gols sofridos",
-    "Suplente utilizado",
-    "Substituições",
-    "Cartões amarelos",
-    "Expulsões (dois amarelos)",
-    "Expulsões (vermelho direto)",
-    "Gols sofridos",
-    "Jogos sem gols sofridos",
-    "Minutos jogados"
-]
-
-# Lista de jogadores (nome + link)
 jogadores = [
     ("Rafael", "https://www.transfermarkt.com.br/rafael/leistungsdaten/spieler/68097/saison/2024/plus/1"),
     ("Jandrei", "https://www.transfermarkt.com.br/jandrei/leistungsdaten/spieler/512344/saison/2024/plus/1"),
@@ -59,80 +43,59 @@ jogadores = [
     ("Juan Dinenno", "https://www.transfermarkt.com.br/juan-dinenno/leistungsdaten/spieler/288786/saison/2024/plus/1")
 ]
 
-# Função para obter lista de proxies do secret
-def carregar_proxies():
-    proxies_env = os.getenv("PROXY_LIST", "")
-    proxies = [p.strip() for p in proxies_env.split(",") if p.strip()]
-    return proxies
+proxy_list = os.getenv("PROXY_LIST", "").split("\n")
+user_agents = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0.3 Safari/605.1.15",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0"
+]
 
-# Função para escolher um proxy aleatório
-def escolher_proxy(proxies):
-    if not proxies:
+def get_with_proxy(url):
+    for attempt in range(5):
+        proxy = random.choice(proxy_list) if proxy_list else None
+        proxies = {"http": proxy, "https": proxy} if proxy else None
+        headers = {"User-Agent": random.choice(user_agents)}
+        try:
+            response = requests.get(url, headers=headers, proxies=proxies, timeout=20)
+            response.raise_for_status()
+            return response.text
+        except Exception as e:
+            print(f"⚠️ Tentativa {attempt+1} falhou com proxy {proxy}: {e}")
+            time.sleep(2)
+    return None
+
+def extrair_tabela(html):
+    soup = BeautifulSoup(html, "html.parser")
+    section = soup.find("div", class_="responsive-table")
+    if not section:
         return None
-    proxy = random.choice(proxies)
-    return {
-        "http": proxy,
-        "https": proxy
-    }
 
-# Função principal
-def coletar_tabela(nome, url, proxies):
-    print(f"🔄 Coletando dados de {nome}...")
-
-    try:
-        response = requests.get(url, proxies=escolher_proxy(proxies), timeout=20)
-        response.raise_for_status()
-    except Exception as e:
-        print(f"❌ Erro ao acessar página de {nome}: {e}")
-        return
-
-    soup = BeautifulSoup(response.text, "html.parser")
-
-    # Tabela de desempenho 2025
-    table = soup.find("table", class_="items")
+    table = section.find("table")
     if not table:
-        print(f"⚠️ Tabela de desempenho não encontrada para {nome}")
-        return
+        return None
 
-    # Extrai dados
-    body_rows = table.find("tbody").find_all("tr", recursive=False)
-    rows = []
-    for row in body_rows:
-        cols = row.find_all(["th", "td"], recursive=False)
-        row_data = [col.get_text(strip=True) for col in cols]
-        if len(row_data) == len(HEADERS_FIXOS):
-            rows.append(row_data)
+    return str(table)
 
-    if not rows:
-        print(f"⚠️ Nenhuma linha de dados válida para {nome}")
-        return
+os.makedirs("public", exist_ok=True)
 
-    # Gera HTML
-    html = "<html><head><meta charset='UTF-8'><style>"
-    html += "table { border-collapse: collapse; width: 100%; }"
-    html += "th, td { border: 1px solid #999; padding: 8px; text-align: center; }"
-    html += "thead th { position: sticky; top: 0; background: #eee; }"
-    html += "</style></head><body>"
-    html += f"<h2>Tabela de desempenho de {nome}</h2><table><thead><tr>"
+for nome, url in jogadores:
+    print(f"🔄 Coletando dados de {nome}...")
+    html = get_with_proxy(url)
+    if not html:
+        print(f"❌ Erro ao acessar página de {nome}")
+        continue
 
-    for h in HEADERS_FIXOS:
-        html += f"<th>{h}</th>"
-    html += "</tr></thead><tbody>"
+    tabela_html = extrair_tabela(html)
+    if not tabela_html:
+        print(f"⚠️ Tabela não encontrada para {nome}")
+        continue
 
-    for row in rows:
-        html += "<tr>" + "".join(f"<td>{d}</td>" for d in row) + "</tr>"
-
-    html += "</tbody></table></body></html>"
-
-    os.makedirs("public", exist_ok=True)
-    filename = f"public/{nome.lower().replace(' ', '_')}.html"
-    with open(filename, "w", encoding="utf-8") as f:
-        f.write(html)
-
-    print(f"✅ Tabela salva em {filename}")
-
-
-if __name__ == "__main__":
-    proxies = carregar_proxies()
-    for nome, url in jogadores:
-        coletar_tabela(nome, url, proxies)
+    output_html = f"""
+    <!DOCTYPE html>
+    <html lang="pt-br">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>{nome} - Tabela de Desempenho</title>
+        <style>
+            body {{ font-fam
