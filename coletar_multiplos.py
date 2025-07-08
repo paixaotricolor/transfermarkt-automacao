@@ -1,7 +1,9 @@
-import requests
-from bs4 import BeautifulSoup
 import os
+import requests
+import random
+from bs4 import BeautifulSoup
 
+# Lista de jogadores (nome, link da tabela de desempenho)
 jogadores = [
     ("Rafael", "https://www.transfermarkt.com.br/rafael/leistungsdaten/spieler/68097/saison/2024/plus/1"),
     ("Jandrei", "https://www.transfermarkt.com.br/jandrei/leistungsdaten/spieler/512344/saison/2024/plus/1"),
@@ -38,71 +40,105 @@ jogadores = [
     ("Ryan Francisco", "https://www.transfermarkt.com.br/ryan-francisco/leistungsdaten/spieler/1202387/saison/2024/plus/1"),
     ("André Silva", "https://www.transfermarkt.com.br/andre-silva/leistungsdaten/spieler/565232/saison/2024/plus/1"),
     ("Calleri", "https://www.transfermarkt.com.br/jonathan-calleri/leistungsdaten/spieler/284727/saison/2024/plus/1"),
-    ("Juan Dinenno", "https://www.transfermarkt.com.br/juan-dinenno/leistungsdaten/spieler/288786/saison/2024/plus/1")]
+    ("Juan Dinenno", "https://www.transfermarkt.com.br/juan-dinenno/leistungsdaten/spieler/288786/saison/2024/plus/1")
+]
 
-headers = {"User-Agent": "Mozilla/5.0"}
+# Usa proxies se configurado como secret PROXY_LIST
+proxy_list = os.getenv("PROXY_LIST", "").split(",")
+def get_random_proxy():
+    proxy = random.choice(proxy_list).strip()
+    return {"http": proxy, "https": proxy} if proxy else None
 
-def encontrar_tabela_dados(soup):
-    # Busca todas as tabelas com classe 'items'
-    tabelas = soup.find_all("table", class_="items")
-    for tabela in tabelas:
-        h2 = tabela.find_previous("h2")
-        if h2 and "Desempenho" in h2.text:
-            return tabela
-    return None
+def coletar_tabela(jogador, url):
+    print(f"🔄 Coletando dados de {jogador}...")
 
-for nome, url in jogadores:
-    print(f"🔄 Coletando dados de {nome}...")
     try:
-        response = requests.get(url, headers=headers)
-        soup = BeautifulSoup(response.text, "html.parser")
-
-        tabela = encontrar_tabela_dados(soup)
-        if not tabela:
-            print(f"⚠️ Tabela de desempenho não encontrada para {nome}")
-            continue
-
-        # Cabeçalhos: pega a última linha de <thead> com <th> visíveis (ignora agrupamentos)
-        thead_rows = tabela.find("thead").find_all("tr")
-        header_cells = thead_rows[-1].find_all("th")
-        headers_text = [th.get_text(strip=True) for th in header_cells]
-
-        # Linhas de dados
-        rows = tabela.find("tbody").find_all("tr", recursive=False)
-        html_rows = ""
-        for row in rows:
-            cols = row.find_all("td", recursive=False)
-            if not cols:
-                continue
-
-            row_data = []
-
-            for idx, col in enumerate(cols):
-                # Primeira coluna (competição): ignora imagem e pega só o texto
-                if idx == 0:
-                    texto = col.get_text(strip=True)
-                    row_data.append(texto)
-                else:
-                    row_data.append(col.get_text(strip=True))
-
-            # Preenche com colunas vazias se estiver faltando
-            while len(row_data) < len(headers_text):
-                row_data.append("")
-
-            html_cells = "".join(f"<td>{d}</td>" for d in row_data)
-            html_rows += f"<tr>{html_cells}</tr>\n"
-
-        # Monta a tabela HTML final
-        html_table = "<table border='1' style='width:100%;border-collapse:collapse;text-align:center;'>\n"
-        html_table += "<thead><tr>" + "".join(f"<th>{h}</th>" for h in headers_text) + "</tr></thead>\n"
-        html_table += "<tbody>\n" + html_rows + "</tbody>\n</table>"
-
-        os.makedirs("public", exist_ok=True)
-        filename = f"public/{nome.lower().replace(' ', '_')}.html"
-        with open(filename, "w", encoding="utf-8") as f:
-            f.write(html_table)
-
-        print(f"✅ Tabela salva em {filename}")
-
+        response = requests.get(url, proxies=get_random_proxy(), timeout=20, headers={
+            "User-Agent": "Mozilla/5.0"
+        })
     except Exception as e:
-        print(f"❌ Erro ao processar {nome}: {e}")
+        print(f"❌ Erro ao acessar a página de {jogador}: {e}")
+        return
+
+    if response.status_code != 200:
+        print(f"❌ Erro HTTP para {jogador}: {response.status_code}")
+        return
+
+    soup = BeautifulSoup(response.text, "html.parser")
+
+    # Encontra a seção com título "Desempenho 2025"
+    section = soup.find("div", {"id": "yw1"})
+    if not section:
+        print(f"⚠️ Seção de desempenho não encontrada para {jogador}")
+        return
+
+    # Localiza a tabela correta
+    table = section.find("table", class_="items")
+    if not table:
+        print(f"⚠️ Tabela não encontrada para {jogador}")
+        return
+
+    # Extrai o cabeçalho da tabela
+    header_row = table.find("thead").find_all("tr")[-1]
+    headers = [th.get_text(strip=True) for th in header_row.find_all("th") if th.get_text(strip=True)]
+
+    # Extrai as linhas de dados
+    body_rows = table.find("tbody").find_all("tr", recursive=False)
+    dados = []
+    for row in body_rows:
+        if "class" in row.attrs and "bg_rot_20" in row["class"]:
+            continue  # ignora linhas de separação
+
+        cells = []
+        for td in row.find_all("td", recursive=False):
+            # Remove ícones e imagens
+            for tag in td.find_all(["img", "svg", "a"]):
+                tag.unwrap()
+            text = td.get_text(strip=True)
+            if text:
+                cells.append(text)
+        if cells:
+            dados.append(cells)
+
+    if not headers or not dados:
+        print(f"⚠️ Dados incompletos para {jogador}")
+        return
+
+    # Corrige desalinhamento removendo colunas vazias à esquerda
+    while all(row and row[0] == '' for row in dados):
+        for row in dados:
+            del row[0]
+        if headers:
+            del headers[0]
+
+    # Geração do HTML
+    html = "<html><head><meta charset='UTF-8'>"
+    html += """
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: center; }
+        th { background-color: #eee; position: sticky; top: 0; z-index: 1; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+    </style>
+    """
+    html += "</head><body>"
+    html += f"<h2>{jogador} - Desempenho 2025</h2>"
+    html += "<table><thead><tr>"
+    for h in headers:
+        html += f"<th>{h}</th>"
+    html += "</tr></thead><tbody>"
+    for row in dados:
+        html += "<tr>" + "".join(f"<td>{d}</td>" for d in row) + "</tr>"
+    html += "</tbody></table></body></html>"
+
+    os.makedirs("public", exist_ok=True)
+    filename = f"public/{jogador.lower().replace(' ', '_')}.html"
+    with open(filename, "w", encoding="utf-8") as f:
+        f.write(html)
+
+    print(f"✅ Tabela salva em {filename}")
+
+# Roda para todos os jogadores
+for nome, link in jogadores:
+    coletar_tabela(nome, link)
