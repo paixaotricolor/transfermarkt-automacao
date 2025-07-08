@@ -2,7 +2,6 @@ import os
 import requests
 from bs4 import BeautifulSoup
 
-# Lista de jogadores (nome, URL)
 jogadores = [
     ("Rafael", "https://www.transfermarkt.com.br/rafael/leistungsdaten/spieler/68097/saison/2024/plus/1"),
     ("Jandrei", "https://www.transfermarkt.com.br/jandrei/leistungsdaten/spieler/512344/saison/2024/plus/1"),
@@ -13,21 +12,18 @@ jogadores = [
     ("Negrucci", "https://www.transfermarkt.com.br/felipe-negrucci/leistungsdaten/spieler/980837/saison/2024/plus/1"),
 ]
 
-# Cabeçalhos personalizados
 cabecalhos = [
     "Campeonato", "Jogos", "Gols", "Assistências", "Gols Contra", "Suplente utilizado",
     "Substituições", "Cartões amarelos", "Expulsões (dois amarelos)", "Expulsões (vermelho direto)",
     "Gols de pênalti", "Minutos por gol", "Minutos jogados"
 ]
 
-# Headers realistas para simular navegador
 headers = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36",
     "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7"
 }
 
-# Função para limpar imagem da primeira coluna
-def limpar_imagem_cabecalho(html):
+def extrair_tabela_corrigida(html):
     soup = BeautifulSoup(html, "html.parser")
     section = soup.find("div", class_="responsive-table")
     if not section:
@@ -37,26 +33,30 @@ def limpar_imagem_cabecalho(html):
     if not table:
         return None
 
-    for td in table.find_all("td"):
-        if td.find("img"):
-            td.img.decompose()
-    return str(table)
+    tbody = table.find("tbody")
+    if not tbody:
+        return None
 
-# Cria a pasta public se não existir
+    # Remover a primeira <td> de cada linha (que seria a coluna com a imagem)
+    for tr in tbody.find_all("tr", recursive=False):
+        tds = tr.find_all("td", recursive=False)
+        if tds:
+            tds[0].decompose()  # remove a primeira célula
+
+    return str(tbody)
+
 os.makedirs("public", exist_ok=True)
 
-# Loop por jogador
 for nome, url in jogadores:
     print(f"🔄 Coletando dados de {nome}...")
     try:
         response = requests.get(url, headers=headers, timeout=20)
         response.raise_for_status()
-        tabela_html = limpar_imagem_cabecalho(response.text)
-        if not tabela_html:
+        tbody_corrigido = extrair_tabela_corrigida(response.text)
+        if not tbody_corrigido:
             print(f"⚠️ Tabela não encontrada para {nome}")
             continue
 
-        # Gera HTML com cabeçalho fixo
         output_html = f"""
         <!DOCTYPE html>
         <html lang="pt-br">
@@ -78,7 +78,7 @@ for nome, url in jogadores:
                     <tr>{"".join(f"<th>{coluna}</th>" for coluna in cabecalhos)}</tr>
                 </thead>
                 <tbody>
-                    {BeautifulSoup(tabela_html, "html.parser").find("tbody")}
+                    {tbody_corrigido}
                 </tbody>
             </table>
         </body>
