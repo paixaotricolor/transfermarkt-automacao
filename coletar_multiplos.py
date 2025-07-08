@@ -43,7 +43,8 @@ jogadores = [
     ("Juan Dinenno", "https://www.transfermarkt.com.br/juan-dinenno/leistungsdaten/spieler/288786/saison/2024/plus/1")
 ]
 
-proxy_list = os.getenv("PROXY_LIST", "").split("\n")
+proxy_list = [p.strip() for p in os.getenv("PROXY_LIST", "").splitlines() if p.strip()]
+
 user_agents = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0.3 Safari/605.1.15",
@@ -90,26 +91,24 @@ for nome, url in jogadores:
         print(f"⚠️ Tabela não encontrada para {nome}")
         continue
 
-    output_html = f"""
-    <!DOCTYPE html>
-    <html lang="pt-br">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>{nome} - Tabela de Desempenho</title>
-        <style>
-            body {{ font-family: Arial, sans-serif; padding: 20px; }}
-            table {{ border-collapse: collapse; width: 100%; }}
-            th, td {{ border: 1px solid #ccc; padding: 8px; text-align: center; }}
-            thead th {{ position: sticky; top: 0; background-color: #f9f9f9; z-index: 1; }}
-        </style>
-    </head>
-    <body>
-        <h2>Tabela de desempenho - {nome}</h2>
-        {tabela_html}
-    </body>
-    </html>
-    """
+    output_html = f"""<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{nome} - Tabela de Desempenho</title>
+    <style>
+        body {{ font-family: Arial, sans-serif; padding: 20px; }}
+        table {{ border-collapse: collapse; width: 100%; }}
+        th, td {{ border: 1px solid #ccc; padding: 8px; text-align: center; }}
+        thead th {{ position: sticky; top: 0; background-color: #f9f9f9; z-index: 1; }}
+    </style>
+</head>
+<body>
+    <h2>Tabela de desempenho - {nome}</h2>
+    {tabela_html}
+</body>
+</html>"""
 
     filename = f"public/{nome.lower().replace(' ', '_')}.html"
     with open(filename, "w", encoding="utf-8") as f:
