@@ -1,8 +1,25 @@
 import os
-import requests
 import random
+import requests
 from bs4 import BeautifulSoup
 
+# Lista fixa de cabeçalhos
+HEADERS_FIXOS = [
+    "Campeonato",
+    "Jogos",
+    "Gols",
+    "Gols sofridos",
+    "Suplente utilizado",
+    "Substituições",
+    "Cartões amarelos",
+    "Expulsões (dois amarelos)",
+    "Expulsões (vermelho direto)",
+    "Gols sofridos",
+    "Jogos sem gols sofridos",
+    "Minutos jogados"
+]
+
+# Lista de jogadores (nome + link)
 jogadores = [
     ("Rafael", "https://www.transfermarkt.com.br/rafael/leistungsdaten/spieler/68097/saison/2024/plus/1"),
     ("Jandrei", "https://www.transfermarkt.com.br/jandrei/leistungsdaten/spieler/512344/saison/2024/plus/1"),
@@ -42,107 +59,80 @@ jogadores = [
     ("Juan Dinenno", "https://www.transfermarkt.com.br/juan-dinenno/leistungsdaten/spieler/288786/saison/2024/plus/1")
 ]
 
-proxy_list = os.getenv("PROXY_LIST", "").split(",")
+# Função para obter lista de proxies do secret
+def carregar_proxies():
+    proxies_env = os.getenv("PROXY_LIST", "")
+    proxies = [p.strip() for p in proxies_env.split(",") if p.strip()]
+    return proxies
 
-def get_random_proxy():
-    proxy = random.choice(proxy_list).strip()
-    return {"http": proxy, "https": proxy} if proxy else None
+# Função para escolher um proxy aleatório
+def escolher_proxy(proxies):
+    if not proxies:
+        return None
+    proxy = random.choice(proxies)
+    return {
+        "http": proxy,
+        "https": proxy
+    }
 
-def coletar_tabela(jogador, url):
-    print(f"🔄 Coletando dados de {jogador}...")
+# Função principal
+def coletar_tabela(nome, url, proxies):
+    print(f"🔄 Coletando dados de {nome}...")
 
     try:
-        response = requests.get(url, proxies=get_random_proxy(), timeout=20, headers={
-            "User-Agent": "Mozilla/5.0"
-        })
+        response = requests.get(url, proxies=escolher_proxy(proxies), timeout=20)
+        response.raise_for_status()
     except Exception as e:
-        print(f"❌ Erro ao acessar a página de {jogador}: {e}")
-        return
-
-    if response.status_code != 200:
-        print(f"❌ Erro HTTP para {jogador}: {response.status_code}")
+        print(f"❌ Erro ao acessar página de {nome}: {e}")
         return
 
     soup = BeautifulSoup(response.text, "html.parser")
-    section = soup.find("div", {"id": "yw1"})
-    if not section:
-        print(f"⚠️ Seção de desempenho não encontrada para {jogador}")
-        return
 
-    table = section.find("table", class_="items")
+    # Tabela de desempenho 2025
+    table = soup.find("table", class_="items")
     if not table:
-        print(f"⚠️ Tabela não encontrada para {jogador}")
+        print(f"⚠️ Tabela de desempenho não encontrada para {nome}")
         return
 
-# Cabeçalhos fixos definidos manualmente, na ordem correta
-headers = [
-    "Campeonato",
-    "Jogos",
-    "Gols",
-    "Gols sofridos",
-    "Suplente utilizado",
-    "Substituições",
-    "Cartões amarelos",
-    "Expulsões (dois amarelos)",
-    "Expulsões (vermelho direto)",
-    "Gols sofridos",
-    "Jogos sem gols sofridos",
-    "Minutos jogados"
-]
-
-    # Extrai os dados
+    # Extrai dados
     body_rows = table.find("tbody").find_all("tr", recursive=False)
-    dados = []
+    rows = []
     for row in body_rows:
-        if "class" in row.attrs and "bg_rot_20" in row["class"]:
-            continue
-        cells = []
-        for td in row.find_all("td", recursive=False):
-            for tag in td.find_all(["img", "svg", "a"]):
-                tag.unwrap()
-            text = td.get_text(strip=True)
-            cells.append(text)
-        if cells:
-            dados.append(cells)
+        cols = row.find_all(["th", "td"], recursive=False)
+        row_data = [col.get_text(strip=True) for col in cols]
+        if len(row_data) == len(HEADERS_FIXOS):
+            rows.append(row_data)
 
-    if not headers or not dados:
-        print(f"⚠️ Dados incompletos para {jogador}")
+    if not rows:
+        print(f"⚠️ Nenhuma linha de dados válida para {nome}")
         return
-
-    # Corrige desalinhamento: remove colunas vazias à esquerda
-    while dados and headers and all(row[0] == '' for row in dados if row):
-        for row in dados:
-            if row: del row[0]
-        if headers: del headers[0]
 
     # Gera HTML
-    html = "<html><head><meta charset='UTF-8'>"
-    html += """
-    <style>
-        body { font-family: sans-serif; padding: 20px; }
-        table { border-collapse: collapse; width: 100%; }
-        th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: center; }
-        th { background-color: #eee; position: sticky; top: 0; z-index: 1; }
-        tr:nth-child(even) { background-color: #f9f9f9; }
-    </style>
-    """
-    html += "</head><body>"
-    html += f"<h2>{jogador} - Desempenho 2025</h2>"
-    html += "<table><thead><tr>"
-    for h in headers:
+    html = "<html><head><meta charset='UTF-8'><style>"
+    html += "table { border-collapse: collapse; width: 100%; }"
+    html += "th, td { border: 1px solid #999; padding: 8px; text-align: center; }"
+    html += "thead th { position: sticky; top: 0; background: #eee; }"
+    html += "</style></head><body>"
+    html += f"<h2>Tabela de desempenho de {nome}</h2><table><thead><tr>"
+
+    for h in HEADERS_FIXOS:
         html += f"<th>{h}</th>"
     html += "</tr></thead><tbody>"
-    for row in dados:
+
+    for row in rows:
         html += "<tr>" + "".join(f"<td>{d}</td>" for d in row) + "</tr>"
+
     html += "</tbody></table></body></html>"
 
     os.makedirs("public", exist_ok=True)
-    filename = f"public/{jogador.lower().replace(' ', '_')}.html"
+    filename = f"public/{nome.lower().replace(' ', '_')}.html"
     with open(filename, "w", encoding="utf-8") as f:
         f.write(html)
 
     print(f"✅ Tabela salva em {filename}")
 
-# Executa para todos os jogadores
-for nome, link in jogadores:
-    coletar_tabela(nome, link)
+
+if __name__ == "__main__":
+    proxies = carregar_proxies()
+    for nome, url in jogadores:
+        coletar_tabela(nome, url, proxies)
