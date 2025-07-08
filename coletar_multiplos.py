@@ -43,7 +43,7 @@ jogadores = [
 ]
 
 HEADERS_GOLEIRO = [
-    "jogos", "gols", "gols contra", "suplente utilizado", "substituições",
+    "campeonato", "jogos", "gols", "gols contra", "suplente utilizado", "substituições",
     "cartões amarelos", "expulsões (dois amarelos)", "expulsões (vermelho direto)",
     "gols sofridos", "jogos sem gols sofridos", "minutos jogados"
 ]
