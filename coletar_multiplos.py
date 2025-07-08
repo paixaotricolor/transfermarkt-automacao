@@ -74,12 +74,21 @@ def coletar_tabela(jogador, url):
         print(f"⚠️ Tabela não encontrada para {jogador}")
         return
 
-    # Extrai os cabeçalhos
-    header_row = table.find("thead").find_all("tr")[-1]
-    headers = []
-    for th in header_row.find_all("th", recursive=False):
-        text = th.get_text(separator=" ", strip=True)
-        headers.append(text if text else "")
+# Cabeçalhos fixos definidos manualmente, na ordem correta
+headers = [
+    "Campeonato",
+    "Jogos",
+    "Gols",
+    "Gols sofridos",
+    "Suplente utilizado",
+    "Substituições",
+    "Cartões amarelos",
+    "Expulsões (dois amarelos)",
+    "Expulsões (vermelho direto)",
+    "Gols sofridos",
+    "Jogos sem gols sofridos",
+    "Minutos jogados"
+]
 
     # Extrai os dados
     body_rows = table.find("tbody").find_all("tr", recursive=False)
