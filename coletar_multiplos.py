@@ -20,6 +20,12 @@ cabecalhos = [
     "Gols de pênalti", "Minutos por gol", "Minutos jogados"
 ]
 
+# Headers realistas para simular navegador
+headers = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36",
+    "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7"
+}
+
 # Função para limpar imagem da primeira coluna
 def limpar_imagem_cabecalho(html):
     soup = BeautifulSoup(html, "html.parser")
@@ -43,7 +49,7 @@ os.makedirs("public", exist_ok=True)
 for nome, url in jogadores:
     print(f"🔄 Coletando dados de {nome}...")
     try:
-        response = requests.get(url, timeout=20)
+        response = requests.get(url, headers=headers, timeout=20)
         response.raise_for_status()
         tabela_html = limpar_imagem_cabecalho(response.text)
         if not tabela_html:
